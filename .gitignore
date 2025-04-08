@@ -1,0 +1,14 @@
+project_3_data/
+
+target/
+project/target/
+project/project/
+.metals/
+.idea/
+.cache/
+.classpath
+.project
+.DS_Store
+
+# Spark output folders
+output/

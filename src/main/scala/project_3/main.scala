@@ -8,6 +8,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx._
 import org.apache.spark.storage.StorageLevel
 import org.apache.log4j.{Level, Logger}
+import scala.util.Random
 
 object main{
   val rootLogger = Logger.getRootLogger()
@@ -28,10 +29,9 @@ object main{
       println(s"Iteration $iteration — Remaining active vertices: $remaining")
 
       // Step 2: Assign random priorities to active vertices (0 = undecided)
-      val priorities = g.vertices.mapValues {
-        case 0 => Random.nextDouble()
-        case _ => Double.PositiveInfinity
-      }
+      val priorities = g.vertices.mapValues((attr: Int) =>
+      if (attr == 0) Random.nextDouble() else Double.PositiveInfinity
+      )
 
       val gWithPriorities = Graph(priorities, g.edges)
 

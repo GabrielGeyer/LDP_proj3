@@ -51,6 +51,15 @@ Apply `LubyMIS` locally on the graph files listed below and report the number of
 | twitter_1000_edges.csv  |
 | twitter_10000_edges.csv |
 
+| Graph File               | Iterations | Runtime (s) | Output Verified as MIS? |
+|--------------------------|------------|-------------|--------------------------|
+| small_edges.csv          |   1        | 0           | Yes                      |
+| line_100_edges.csv       |   2        | 1           | Yes                      |
+| twitter_100_edges.csv    |   2        | 1           | Yes                      |
+| twitter_1000_edges.csv   |   3        | 1           | Yes                      |
+| twitter_10000_edges.csv  |   3        | 2           | Yes                      |
+
+
 3. **(3 points)**  
 a. Run `LubyMIS` on `twitter_original_edges.csv` in GCP with 3x4 cores (vCPUs). Report the number of iterations, running time, and remaining active vertices (i.e. vertices whose status has yet to be determined) at the end of **each iteration**. You may need to include additional print statements in `LubyMIS` in order to acquire this information. Finally, verify your outputs with `verifyMIS`.  
 b. Run `LubyMIS` on `twitter_original_edges.csv` with 4x2 cores (vCPUs) and then 2x2 cores (vCPUs). Compare the running times between the 3 jobs with varying core specifications that you submitted in **3a** and **3b**.
