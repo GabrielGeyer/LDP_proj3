@@ -24,7 +24,42 @@ object main{
 
 
   def verifyMIS(g_in: Graph[Int, Int]): Boolean = {
-    // To Implement
+    import org.apache.spark.graphx._
+
+    // Check 1: Independence — no edge should connect two vertices both labeled 1
+    val independenceViolation = g_in.triplets.filter { triplet =>
+      triplet.srcAttr == 1 && triplet.dstAttr == 1
+    }.count() > 0
+
+    if (independenceViolation) {
+      println("Independence violated: found adjacent vertices both labeled 1")
+      return false
+    }
+
+    // Check 2: Maximality — every vertex labeled -1 must have a neighbor labeled 1
+    val neighborMIS = g_in.aggregateMessages[Boolean](
+      triplet => {
+        if (triplet.srcAttr == 1 && triplet.dstAttr == -1)
+          triplet.sendToDst(true)
+        if (triplet.dstAttr == 1 && triplet.srcAttr == -1)
+          triplet.sendToSrc(true)
+      },
+      (a, b) => a || b
+    )
+
+    val maximalityViolation = g_in.vertices.filter {
+      case (vid, attr) => attr == -1
+    }.leftOuterJoin(neighborMIS).filter {
+      case (_, (_, hasMISNeighborOpt)) => hasMISNeighborOpt.getOrElse(false) == false
+    }.count() > 0
+
+    if (maximalityViolation) {
+      println("Maximality violated: some non-MIS vertices have no MIS neighbors")
+      return false
+    }
+
+    println("Graph is a valid Maximal Independent Set (MIS)")
+    true
   }
 
 
