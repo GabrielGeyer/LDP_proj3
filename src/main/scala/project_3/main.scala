@@ -17,14 +17,80 @@ object main{
   Logger.getLogger("org.spark-project").setLevel(Level.WARN)
 
   def LubyMIS(g_in: Graph[Int, Int]): Graph[Int, Int] = {
-    while (remaining_vertices >= 1) {
-        // To Implement
+    // Step 1: Initialize all vertices with label 0 (undecided)
+    var g = g_in.mapVertices((id, _) => 0)
+
+    var remaining = g.vertices.filter { case (_, attr) => attr == 0 }.count()
+    var iteration = 0
+
+    while (remaining > 0) {
+      iteration += 1
+      println(s"Iteration $iteration — Remaining active vertices: $remaining")
+
+      // Step 2: Assign random priorities to active vertices (0 = undecided)
+      val priorities = g.vertices.mapValues {
+        case 0 => Random.nextDouble()
+        case _ => Double.PositiveInfinity
+      }
+
+      val gWithPriorities = Graph(priorities, g.edges)
+
+      // Step 3: Send neighbor priorities to each vertex
+      val neighborMin = gWithPriorities.aggregateMessages[Double](
+        triplet => {
+          if (triplet.srcAttr != Double.PositiveInfinity && triplet.dstAttr != Double.PositiveInfinity) {
+            triplet.sendToSrc(triplet.dstAttr)
+            triplet.sendToDst(triplet.srcAttr)
+          }
+        },
+        (a, b) => math.min(a, b)
+      )
+
+      // Step 4: Determine which vertices win — lowest among neighbors
+      val newLabels = gWithPriorities.vertices.leftJoin(neighborMin) {
+        case (_, selfPriority, Some(minNeighbor)) =>
+          if (selfPriority < minNeighbor) 1 else 0
+        case (_, selfPriority, None) => 1 // No neighbors → MIS by default
+      }
+
+      // Update graph with MIS candidates marked as 1
+      val updated = g.vertices.leftJoin(newLabels) {
+        case (_, oldLabel, Some(newLabel)) =>
+          if (oldLabel != 0) oldLabel else newLabel
+        case (_, oldLabel, None) => oldLabel
+      }
+
+      g = Graph(updated, g.edges)
+
+      // Step 5: Remove neighbors of MIS vertices (mark them -1)
+      val toRemove = g.aggregateMessages[Int](
+        triplet => {
+          if (triplet.srcAttr == 1 && triplet.dstAttr == 0)
+            triplet.sendToDst(-1)
+          if (triplet.dstAttr == 1 && triplet.srcAttr == 0)
+            triplet.sendToSrc(-1)
+        },
+        (a, b) => -1
+      )
+
+      val finalVerts = g.vertices.leftJoin(toRemove) {
+        case (_, attr, Some(-1)) =>
+          if (attr == 0) -1 else attr
+        case (_, attr, _) => attr
+      }
+
+      g = Graph(finalVerts, g.edges)
+
+      remaining = g.vertices.filter { case (_, attr) => attr == 0 }.count()
+      println(s" Iteration $iteration complete — Remaining: $remaining")
     }
+
+    println("LubyMIS complete")
+    g
   }
 
 
   def verifyMIS(g_in: Graph[Int, Int]): Boolean = {
-    import org.apache.spark.graphx._
 
     // Check 1: Independence — no edge should connect two vertices both labeled 1
     val independenceViolation = g_in.triplets.filter { triplet =>
