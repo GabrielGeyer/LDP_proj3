@@ -18,24 +18,27 @@ object main{
   Logger.getLogger("org.spark-project").setLevel(Level.WARN)
 
   def LubyMIS(g_in: Graph[Int, Int]): Graph[Int, Int] = {
-    // Step 1: Initialize all vertices with label 0 (undecided)
-    var g = g_in.mapVertices((id, _) => 0)
+    println("===== Starting LubyMIS Algorithm =====")
+    val globalStart = System.currentTimeMillis()
+
+    var g = g_in.mapVertices((id, _) => 0) // 0 = undecided, 1 = in MIS, -1 = not in MIS
 
     var remaining = g.vertices.filter { case (_, attr) => attr == 0 }.count()
     var iteration = 0
 
     while (remaining > 0) {
+      val iterStart = System.currentTimeMillis()
       iteration += 1
-      println(s"Iteration $iteration — Remaining active vertices: $remaining")
+      println(s"\n--- Iteration $iteration ---")
+      println(s"Active (undecided) vertices at start: $remaining")
 
-      // Step 2: Assign random priorities to active vertices (0 = undecided)
+      // Step 2: Assign random priorities
       val priorities = g.vertices.mapValues((attr: Int) =>
-      if (attr == 0) Random.nextDouble() else Double.PositiveInfinity
+        if (attr == 0) Random.nextDouble() else Double.PositiveInfinity
       )
-
       val gWithPriorities = Graph(priorities, g.edges)
 
-      // Step 3: Send neighbor priorities to each vertex
+      // Step 3: Aggregate neighbor priorities
       val neighborMin = gWithPriorities.aggregateMessages[Double](
         triplet => {
           if (triplet.srcAttr != Double.PositiveInfinity && triplet.dstAttr != Double.PositiveInfinity) {
@@ -46,14 +49,14 @@ object main{
         (a, b) => math.min(a, b)
       )
 
-      // Step 4: Determine which vertices win — lowest among neighbors
+      // Step 4: Choose MIS nodes
       val newLabels = gWithPriorities.vertices.leftJoin(neighborMin) {
         case (_, selfPriority, Some(minNeighbor)) =>
           if (selfPriority < minNeighbor) 1 else 0
-        case (_, selfPriority, None) => 1 // No neighbors → MIS by default
+        case (_, selfPriority, None) => 1
       }
 
-      // Update graph with MIS candidates marked as 1
+      // Step 5: Update graph with MIS selections
       val updated = g.vertices.leftJoin(newLabels) {
         case (_, oldLabel, Some(newLabel)) =>
           if (oldLabel != 0) oldLabel else newLabel
@@ -62,7 +65,7 @@ object main{
 
       g = Graph(updated, g.edges)
 
-      // Step 5: Remove neighbors of MIS vertices (mark them -1)
+      // Step 6: Mark neighbors of MIS nodes as -1
       val toRemove = g.aggregateMessages[Int](
         triplet => {
           if (triplet.srcAttr == 1 && triplet.dstAttr == 0)
@@ -82,10 +85,16 @@ object main{
       g = Graph(finalVerts, g.edges)
 
       remaining = g.vertices.filter { case (_, attr) => attr == 0 }.count()
-      println(s" Iteration $iteration complete — Remaining: $remaining")
+      val iterEnd = System.currentTimeMillis()
+      val iterTime = (iterEnd - iterStart) / 1000.0
+
+      println(f"Iteration $iteration complete — Remaining active: $remaining — Iteration time: $iterTime%.2f seconds")
     }
 
-    println("LubyMIS complete")
+    val globalEnd = System.currentTimeMillis()
+    val totalTime = (globalEnd - globalStart) / 1000.0
+    println(f"\n LubyMIS complete after $iteration iterations")
+    println(f" Total runtime: $totalTime%.2f seconds")
     g
   }
 
