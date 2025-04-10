@@ -12,3 +12,4 @@ project/project/
 
 # Spark output folders
 output/
+twitter_original_edges.csv
